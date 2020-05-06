@@ -59,7 +59,11 @@ class JSONViewer {
                 temp_this.tabs[e] = temp_this.json[e];
             }
         });
-        this.showTabView();
+        if (isTable(this.json, true)) {
+            this.showGridView();
+        } else {
+            this.showTabView();
+        }
     }
     showGridView(){
         this.tab_viewers = {};
@@ -99,7 +103,7 @@ class JSONViewer {
                 var cell = row.append("div")
                   .attr("class", "col-sm");
                 if (isLeaf(temp_this.json[e1][e2])) {
-                    cell.html(temp_this.json[e1][e2]);
+                    temp_this.addInput(cell, temp_this.json[e1][e2], temp_this.prefix.concat([e1, e2]));
                 } else {
                     temp_this.grid_viewers[e1][e2] = new JSONViewer(temp_this.json[e1][e2], cell, temp_this.prefix.concat([e1, e2]));
                 }
@@ -134,7 +138,7 @@ class JSONViewer {
         kv_pair_div
           .append("div")
           .attr("class", "col-sm")
-          .html(function(d){ return temp_this.params[d]; });
+          .each(function(d){ temp_this.addInput(d3.select(this), temp_this.json[d], temp_this.prefix.concat([d])); });
 
         this.container
           .append("ul")
@@ -147,7 +151,7 @@ class JSONViewer {
             .append("a")
             .attr("class", "nav-link")
             .attr("data-toggle", "tab")
-            .attr("href", function(d){ return replace_sep_tokens("#"+temp_this.prefix.join("_")+"__"+d); })
+            .attr("href", function(d){ return "#"+replace_sep_tokens(temp_this.prefix.join("_")+"__"+d); })
             .html(function(d){ return d; });
         var tab_content_wrapper = this.container
           .append("div")
@@ -159,10 +163,31 @@ class JSONViewer {
             temp_this.tab_viewers[e] = new JSONViewer(temp_this.tabs[e], tab_content, temp_this.prefix.concat([e]));
         });
     }
+    addInput(parent, element, prefix){
+        if ((typeof element == "number") || (typeof element == "string")) {
+            parent.append("input")
+              .attr("class", "form-control")
+              .attr("placeholder", element);
+        } else if (typeof element == "boolean") {
+            var checkdiv = parent.append("div")
+              .attr("class", "form-check");
+            checkdiv
+              .append("input")
+              .attr("class", "form-check-input")
+              .attr("type", "checkbox")
+              .attr("value", element)
+              .attr("id", replace_sep_tokens(prefix.join("_")));
+            checkdiv
+              .append("label")
+              .attr("class", "form-check-label")
+              .attr("for", replace_sep_tokens(prefix.join("_")))
+              .html(element);
+        }
+    }
 }
 
 function replace_sep_tokens(s) {
-    return s.replace(/ /g, "_").replace(/\//g, "_").replace(/=/g, "_").replace(/>/g, "_").replace(/</g, "_");
+    return s.replace(/#/g, "_").replace(/ /g, "_").replace(/\//g, "_").replace(/=/g, "_").replace(/>/g, "_").replace(/</g, "_"); //.replace("\#", "_");
 }
 
 function isLeaf(o) {
@@ -178,7 +203,7 @@ function isLeaf(o) {
     return false;
 }
 
-function isTable(o) {
+function isTable(o, checkleaf=false) {
     rows = Object.keys(o);
     if (rows.length <= 0) {
         return false;
@@ -195,6 +220,9 @@ function isTable(o) {
         }
         for (j = 0; j < row_columns.length; j++) {
             if (!columns_set.has(row_columns[j])) {
+                return false;
+            }
+            if (checkleaf && !isLeaf(o[rows[i]][row_columns[j]])) {
                 return false;
             }
         }
