@@ -1,3 +1,7 @@
 .grid-container {
 	background-color: lightgrey;
 }
+
+.hide {
+	display: none;
+}

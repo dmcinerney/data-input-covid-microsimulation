@@ -11,8 +11,7 @@ def index():
             data = json.load(json_file)
     return render_template('index.html', json_string=data)
 
-
+# submit with a name
 @app.route('/', methods=['POST'])
-def save():
-    # request.form
-    return {}
+def create_jsons():
+    pass

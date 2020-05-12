@@ -2,7 +2,7 @@
 <html>
 
   <head>
-    <title>Annotate</title>
+    <title>Microsimulation Parameters</title>
     <!-- begin bootstrap -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
@@ -11,15 +11,15 @@
     <!-- end bootstrap -->
     <!-- d3 --> <script src="/static/d3.min.js"></script>
     <script>
-      var json_string = '{{ json_string | tojson | safe}}';
+      var json_string = '{{ json_string | tojson | safe }}';
     </script>
     <script src="/static/index.js"></script>
     <link rel="stylesheet" type="text/css" href="/static/index.css">
   </head>
 
   <body>
-    <h1>Input Microsimulation Parameters</h1>
-    <div class="input-group mb-3">
+    <h1 class="m-3">Input Microsimulation Parameters</h1>
+    <div class="input-group mb-3 p-3">
       <div class="input-group-prepend">
         <span class="input-group-text">Choose file</span>
       </div>
@@ -29,9 +29,20 @@
       </div>
     </div>
     <div>
-      <text>No JSON Uploaded</text>
+      <text id="title" class="m-3">No JSON Uploaded</text>
+      <button type="button" class="btn btn-secondary m-3">Download</button>
     </div>
     <div id="param-editor">
+    </div>
+    <div id="param-details" class="hide">
+      <div id="param-prefix">Parameter prefix</div>
+      <select id="param-type">
+        <option value="one-input">One Input</option>
+        <option value="input-range">Input Range</option>
+        <option value="enumerate">Enumerate</option>
+      </select>
+      <div id="param-value"></div>
+      <button type="button" class="btn btn-secondary" id="exit">Exit</button>
     </div>
   </body>
 
