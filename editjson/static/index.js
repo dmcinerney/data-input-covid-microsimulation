@@ -106,7 +106,7 @@ class JSONNonLeaf extends JSONViewer {
         super.display(parent_div);
         this.container = this.parent_div.append("div").attr("class", "border m-3");
         if (this.isTable(true)) {
-            this.showGridView();
+            this.showTableView();
         } else {
             this.showTabView();
         }
@@ -177,24 +177,24 @@ class JSONNonLeaf extends JSONViewer {
               .append("button")
               .attr("class", "btn btn-primary")
               .attr("type", "submit")
-              .html("Grid View")
-              .on("click", function(){ temp_this.showGridView(); });
+              .html("Table View")
+              .on("click", function(){ temp_this.showTableView(); });
         }
-        var kv_pair_div = this.container
-          .append("div")
-          .attr("class", "container grid-container kvlist")
-          .selectAll("div")
+        var row = this.container
+          .append("table")
+          .attr("class", "table table-bordered")
+          .append("tbody")
+          .selectAll("tr")
           .data(Object.keys(this.viewers).filter(function(e){ return temp_this.viewers[e] instanceof Param; }))
           .enter()
-            .append("div")
-            .attr("class", "row");
-        kv_pair_div
-          .append("div")
-          .attr("class", "col-sm")
+            .append("tr")
+        row
+          .append("th")
+          .attr("scope", "row")
           .html(function(d){ return d; });
-        kv_pair_div
-          .append("div")
-          .attr("class", "col-sm keys")
+        row
+          .append("td")
+          .attr("class", "cell")
           .each(function(d){ temp_this.viewers[d].display(d3.select(this)); });
 
         var tabs = Object.keys(this.viewers).filter(function(e){ return temp_this.viewers[e] instanceof JSONNonLeaf; });
@@ -230,42 +230,40 @@ class JSONNonLeaf extends JSONViewer {
             .attr("class", "tab-pane fade")
             .each(function(d){ temp_this.viewers[d].display(d3.select(this)); });
     }
-    showGridView() {
+    showTableView() {
         this.tabview = false;
         var temp_this = this;
-        if (this.isTable()) {
-            this.container
-              .html("")
-              .append("button")
-              .attr("class", "btn btn-primary")
-              .attr("type", "submit")
-              .html("Tab View")
-              .on("click", function(){ temp_this.showTabView(); });
-        }
-        var grid_container = this.container
-          .append("div")
-          .attr("class", "container grid-container")
-        var columns = Object.keys(Object.values(this.viewers)[0].viewers);
+        this.container
+          .html("")
+          .append("button")
+          .attr("class", "btn btn-primary")
+          .attr("type", "submit")
+          .html("Tab View")
+          .on("click", function(){ temp_this.showTabView(); });
+        var table = this.container
+          .append("table")
+          .attr("class", "table table-bordered");
+        var column_names = Object.keys(Object.values(this.viewers)[0].viewers);
 
-        grid_container
-          .append("div")
-          .attr("class", "row")
-          .selectAll("div")
-          .data([""].concat(columns))
+        table
+          .append("thead")
+          .append("tr")
+          .selectAll("th")
+          .data([""].concat(column_names))
           .enter()
-            .append("div")
-            .attr("class", "col-sm")
+            .append("th")
+            .attr("scope", "col")
             .html(function(d){ return d; });
         Object.keys(this.viewers).forEach(function(e1){
-            var row = grid_container
-              .append("div")
-              .attr("class", "row");
-            row.append("div")
-              .attr("class", "col-sm")
+            var row = table
+              .append("tbody")
+              .append("tr");
+            row
+              .append("th")
+              .attr("scope", "row")
               .html(e1);
             Object.keys(temp_this.viewers[e1].viewers).forEach(function(e2){
-                var cell = row.append("div")
-                  .attr("class", "col-sm");
+                var cell = row.append("td").attr("class", "cell");
                 temp_this.viewers[e1].viewers[e2].display(cell);
             });
         });
@@ -284,11 +282,14 @@ class JSONDictionary extends JSONNonLeaf {
             if (v == null) {
                 temp_this.viewers[k] = null;
             } else if (typeof v == "number") {
-                temp_this.viewers[k] = new NumberParam(v, temp_this, k);
+                temp_this.json[k] = {"param": v};
+                temp_this.viewers[k] = new NumberParam(temp_this.json[k], temp_this, k);
             } else if (typeof v == "string") {
-                temp_this.viewers[k] = new StringParam(v, temp_this, k);
+                temp_this.json[k] = {"param": v};
+                temp_this.viewers[k] = new StringParam(temp_this.json[k], temp_this, k);
             } else if (typeof v == "boolean") {
-                temp_this.viewers[k] = new BooleanParam(v, temp_this, k);
+                temp_this.json[k] = {"param": v};
+                temp_this.viewers[k] = new BooleanParam(temp_this.json[k], temp_this, k);
             } else if (Array.isArray(v)) {
                 temp_this.viewers[k] = new JSONList(v, temp_this, k);
             } else {
@@ -313,7 +314,8 @@ class JSONDictionary extends JSONNonLeaf {
             var input = tab
               .append("input")
               .attr("class", "form-control")
-              .attr("placeholder", key);
+              .attr("value", key);
+            input.node().select();
             $(input.node()).on("click", function(){ return false; });
             $(document).on("click.forChangeKeyName", function(){
                 temp_this.changeKeyName(key, input.node().value);
@@ -360,37 +362,141 @@ class Param extends JSONViewer {
 }
 
 class StringParam extends Param {
+    constructor(json, parent=null, name="top") {
+        super(json, parent, name);
+        this.global_identifier = global_state.getFreshId();
+        this.content = null;
+    }
     display(parent_div) {
+        super.display(parent_div);
         var temp_this = this;
-        var inputgroup = parent_div.append("div")
-          .attr("class", "input-group m-1");
-        inputgroup.append("input")
-          .attr("type", "text")
+        this.parent_div
+          .attr("tabindex", "0")
+          .attr("data-trigger", "manual")
+          .attr("data-container", "body")
+          .attr("data-toggle", "popover")
+          .attr("data-placement", "top")
+          .attr("data-html", "true")
+          .html(this.json["param"]);
+        $(this.parent_div.node()).on("focusin.selectParam"+temp_this.global_identifier, function(){ temp_this.select(); });
+    }
+    deselect() {
+        var temp_this = this;
+        // $(this.parent_div.node()).off("focusin.deselectParam"+temp_this.global_identifier);
+        // $(this.parent_div.node()).off("click.deselectParam"+temp_this.global_identifier);
+        $(this.content.node()).off("focusin.deselectParam"+temp_this.global_identifier);
+        $(this.content.node()).off("click.deselectParam"+temp_this.global_identifier);
+        $(document).off("focusin.deselectParam"+temp_this.global_identifier);
+        $(document).off("click.deselectParam"+temp_this.global_identifier);
+        // save
+        this.savePopoverInfo();
+        // destroy
+        console.log("deselecting");
+        this.parent_div.classed("selected", false);
+        $(this.parent_div.node()).popover('dispose');
+        this.content.remove();
+        $(this.parent_div.node()).on("focusin.selectParam"+temp_this.global_identifier, function(){ temp_this.select(); });
+    }
+    select() {
+        var temp_this = this;
+        // open popover
+        console.log("selecting cell");
+        this.parent_div.classed("selected", true);
+        this.setPopoverContent();
+        $(this.parent_div.node()).popover({"content":this.content.node()});
+        $(this.parent_div.node()).popover('show');
+        // handle interactions
+        $(this.parent_div.node()).off("focusin.selectParam"+temp_this.global_identifier);
+        $(document).on("focusin.deselectParam"+temp_this.global_identifier, function(e){
+            console.log("first focusin on document")
+            $(document).off("focusin.deselectParam"+temp_this.global_identifier); // ignore the first one;
+            // $(temp_this.parent_div.node()).on("focusin.deselectParam"+temp_this.global_identifier, function(e){ console.log("focus on cell"); e.stopPropagation(); });
+            $(temp_this.content.node()).on("focusin.deselectParam"+temp_this.global_identifier, function(e){ console.log("focus on popover"); e.stopPropagation(); });
+            $(document).on("focusin.deselectParam"+temp_this.global_identifier, function(e){
+                console.log("second focusin on document")
+                temp_this.deselect();
+            });
+        });
+        // $(this.parent_div.node()).on("click.deselectParam"+temp_this.global_identifier, function(e){ console.log("click on cell"); e.stopPropagation(); });
+        $(this.content.node()).on("click.deselectParam"+temp_this.global_identifier, function(e){ console.log("click on popover"); e.stopPropagation(); });
+        $(document).on("click.deselectParam"+temp_this.global_identifier, function(e){
+            console.log("first click on document");
+            $(document).off("click.deselectParam"+temp_this.global_identifier); // ignore the first one;
+            $(document).on("click.deselectParam"+temp_this.global_identifier, function(e){
+                console.log("second click on document");
+                temp_this.deselect();
+            });
+        });
+    }
+    setPopoverContent() {
+        var temp_this = this;
+        this.content = d3.select(d3.select("#cell-popover-template-wrapper").select("div").node().cloneNode(true));
+        var input = this.content.append("input")
           .attr("class", "form-control")
-          .attr("placeholder", this.json)
-          .on("keyup", function(){ temp_this.json = this.value; });
-        inputgroup.append("div")
-          .attr("class", "input-group-append")
-          .append("button")
-          .attr("type", "button")
-          .attr("class", "btn btn-light")
-          .html("...")
-          .on("click", function(){ openDetails(temp_this.prefix()); });
-        // change to a dropdown?
-        // <div class="dropdown">
-        //   <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        //     Dropdown button
-        //   </button>
-        //   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-        //     <a class="dropdown-item" href="#">Action</a>
-        //     <a class="dropdown-item" href="#">Another action</a>
-        //     <a class="dropdown-item" href="#">Something else here</a>
-        //   </div>
-        // </div>
+          .attr("value", this.json["param"]);
+        $(this.parent_div.node()).on("shown.bs.popover", function(){
+            input.node().select();
+            //taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
+            // Execute a function when the user releases a key on the keyboard
+            input.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    temp_this.deselect();
+                // Number 13 is the "Tab" key on the keyboard
+                } else if (event.keyCode === 9) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    temp_this.deselect();
+                }
+            });
+        });
+    }
+    savePopoverInfo() {
+        var value = this.content.select("input").node().value.trim();
+        if (value != "") {
+            this.json["param"] = value;
+            this.parent_div.html(value);
+        }
     }
 }
 
 class NumberParam extends StringParam {
+    setPopoverContent() {
+        var temp_this = this;
+        this.content = d3.select(d3.select("#cell-popover-template-wrapper").select("div").node().cloneNode(true));
+        var select = this.content.append("select")
+        var options = ["Number", "Range", "Normal Dist"];
+        select.selectAll("option").data(options).enter().append("option")
+            .attr("value", function(d){ return d; })
+            .html(function(d){ return d; });
+        var input = this.content.append("input")
+          .attr("class", "form-control")
+          .attr("value", this.json["param"]);
+        $(this.parent_div.node()).on("shown.bs.popover", function(){
+            input.node().select();
+            //taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
+            // Execute a function when the user releases a key on the keyboard
+            input.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    temp_this.deselect();
+                // Number 13 is the "Tab" key on the keyboard
+                } else if (event.keyCode === 9) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    temp_this.deselect();
+                }
+            });
+        });
+    }
 }
 
 class BooleanParam extends Param {
@@ -404,26 +510,25 @@ class BooleanParam extends Param {
           .append("input")
           .attr("class", "form-check-input")
           .attr("type", "checkbox")
-          .attr("value", this.json)
+          .attr("value", this.json["param"])
           .attr("id", checkbox_id)
           .on("click", function(){
               var label = d3.select("#"+checkbox_label_id);
               label.html(!temp_this.json);
               temp_this.json = !temp_this.json;
           });
-        checkbox.node().checked = this.json;
+        checkbox.node().checked = this.json["param"];
         checkdiv
           .append("label")
           .attr("class", "form-check-label")
           .attr("for", checkbox_id)
           .attr("id", checkbox_label_id)
-          .html(this.json);
-        checkdiv
-          .append("button")
-          .attr("type", "button")
-          .attr("class", "btn btn-light")
-          .html("...")
-          .on("click", function(){ openDetails(temp_this.prefix()); });
+          .html(this.json["param"]);
+        // checkdiv
+        //   .append("button")
+        //   .attr("type", "button")
+        //   .attr("class", "btn btn-light")
+        //   .html("...");
     }
 }
 
@@ -441,54 +546,9 @@ function getViewerNode(prefix){
     return curr;
 }
 
-function openDetails(prefix) {
-    selected_param = prefix;
-    console.log(prefix);
-    var value = getViewerNode(prefix);
-    var param_details = d3.select("body").select("#param-details").classed("hide", false);
-    param_details.select("#param-prefix")
-      .html(prefix.join(" / "));
-    onSelectType();
-}
-
-function onSelectType() {
-    var value = getViewerNode(selected_param);
-    console.log(value);
-    var type = d3.select("#param-type").node().value;
-    console.log(type);
-    var param_details = d3.select("body").select("#param-details")
-    if (type == "one-input") {
-        param_details.select("#param-value").html("")
-          .append("input")
-          .attr("type", "text")
-          .attr("class", "form-control")
-          .attr("placeholder", value);
-    } else if (type == "input-range") {
-        var valuediv = param_details.select("#param-value").html("");
-        valuediv
-          .append("input")
-          .attr("type", "text")
-          .attr("class", "form-control");
-        valuediv.append("text").html("to");
-        valuediv
-          .append("input")
-          .attr("type", "text")
-          .attr("class", "form-control");
-        valuediv.append("text").html("by");
-        valuediv
-          .append("input")
-          .attr("type", "text")
-          .attr("class", "form-control");
-    } else {
-        var valuediv = param_details.select("#param-value").html("");
-        valuediv
-          .append("input")
-          .attr("type", "text")
-          .attr("class", "form-control");
+function isChild(x, y){
+    // taken from https://stackoverflow.com/questions/17773852/check-if-div-is-descendant-of-another
+    while (x = x.parentNode) { 
+      if (x.id == "a") return true;
     }
-}
-
-function exitDetails() {
-    var selected_param = null;
-    d3.select("body").select("#param-details").classed("hide", true);
 }

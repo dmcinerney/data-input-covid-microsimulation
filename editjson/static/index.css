@@ -1,8 +1,17 @@
-.col-sm {
-	background-color: rgba(86,61,124,.15);
-    border: 1px solid rgba(86,61,124,.2);
-}
-
 .hide {
 	display: none;
 }
+
+.cell.selected {
+	outline: blue;
+	outline-style: solid;
+}
+
+/*.cell.selected:focus {
+	outline: blue;
+	outline-style: solid;
+}*/
+
+/*.cell:focus {
+	outline: none;
+}*/
