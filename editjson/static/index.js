@@ -105,7 +105,7 @@ class JSONNonLeaf extends JSONViewer {
     display(parent_div){
         super.display(parent_div);
         this.container = this.parent_div.append("div").attr("class", "border m-3");
-        if (this.isTable()) {
+        if (this.isTable(true)) {
             this.showGridView();
         } else {
             this.showTabView();
@@ -137,8 +137,36 @@ class JSONNonLeaf extends JSONViewer {
     //     }
     //     return true;
     // }
-    isTable(){
-        return false; //TODO: implement this
+    isTable(checkleaf=false){
+        var rows = Object.keys(this.viewers);
+        if (rows.length <= 0) {
+            return false;
+        }
+        var example_value = this.viewers[rows[0]];
+        if (example_value instanceof Param) {
+            return false;
+        }
+        var columns = Object.keys(example_value.viewers);
+        var columns_set = new Set(columns);
+        for (var i = 0; i < rows.length; i++) {
+            var row_obj = this.viewers[rows[i]];
+            if (row_obj instanceof Param) {
+                return false;
+            }
+            var row_columns = Object.keys(row_obj.viewers);
+            if (row_columns.length != columns.length) {
+                return false;
+            }
+            for (var j = 0; j < row_columns.length; j++) {
+                if (!columns_set.has(row_columns[j])) {
+                    return false;
+                }
+                if (checkleaf && !(this.viewers[rows[i]].viewers[row_columns[j]] instanceof Param)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
     showTabView(){
         var temp_this = this;
@@ -217,7 +245,7 @@ class JSONNonLeaf extends JSONViewer {
         var grid_container = this.container
           .append("div")
           .attr("class", "container grid-container")
-        var columns = Object.keys(Object.values(this.viewers)[0]);
+        var columns = Object.keys(Object.values(this.viewers)[0].viewers);
 
         grid_container
           .append("div")
@@ -335,7 +363,7 @@ class StringParam extends Param {
     display(parent_div) {
         var temp_this = this;
         var inputgroup = parent_div.append("div")
-          .attr("class", "input-group mb-3");
+          .attr("class", "input-group m-1");
         inputgroup.append("input")
           .attr("type", "text")
           .attr("class", "form-control")
