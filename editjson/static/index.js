@@ -379,16 +379,10 @@ class StringParam extends Param {
           .attr("data-placement", "top")
           .attr("data-html", "true")
           .html(this.json["param"]);
-        $(this.parent_div.node()).on("focusin.selectParam"+temp_this.global_identifier, function(){ temp_this.select(); });
+        this.turnOnSelectListeners();
     }
     deselect() {
-        var temp_this = this;
-        // $(this.parent_div.node()).off("focusin.deselectParam"+temp_this.global_identifier);
-        // $(this.parent_div.node()).off("click.deselectParam"+temp_this.global_identifier);
-        $(this.content.node()).off("focusin.deselectParam"+temp_this.global_identifier);
-        $(this.content.node()).off("click.deselectParam"+temp_this.global_identifier);
-        $(document).off("focusin.deselectParam"+temp_this.global_identifier);
-        $(document).off("click.deselectParam"+temp_this.global_identifier);
+        this.turnOffDeselectListeners();
         // save
         this.savePopoverInfo();
         // destroy
@@ -396,31 +390,35 @@ class StringParam extends Param {
         this.parent_div.classed("selected", false);
         $(this.parent_div.node()).popover('dispose');
         this.content.remove();
-        $(this.parent_div.node()).on("focusin.selectParam"+temp_this.global_identifier, function(){ temp_this.select(); });
+        this.turnOnSelectListeners();
     }
     select() {
-        var temp_this = this;
+        this.turnOffSelectListeners();
         // open popover
         console.log("selecting cell");
         this.parent_div.classed("selected", true);
         this.setPopoverContent();
         $(this.parent_div.node()).popover({"content":this.content.node()});
         $(this.parent_div.node()).popover('show');
-        // handle interactions
-        $(this.parent_div.node()).off("focusin.selectParam"+temp_this.global_identifier);
-        $(document).on("focusin.deselectParam"+temp_this.global_identifier, function(e){
-            console.log("first focusin on document")
-            $(document).off("focusin.deselectParam"+temp_this.global_identifier); // ignore the first one;
-            // $(temp_this.parent_div.node()).on("focusin.deselectParam"+temp_this.global_identifier, function(e){ console.log("focus on cell"); e.stopPropagation(); });
-            $(temp_this.content.node()).on("focusin.deselectParam"+temp_this.global_identifier, function(e){ console.log("focus on popover"); e.stopPropagation(); });
-            $(document).on("focusin.deselectParam"+temp_this.global_identifier, function(e){
-                console.log("second focusin on document")
-                temp_this.deselect();
-            });
+        this.turnOnDeselectListeners();
+    }
+    turnOnSelectListeners() {
+        var temp_this = this;
+        $(this.parent_div.node()).on("click.selectParam"+this.global_identifier, function(){ temp_this.select(); });
+        $(this.parent_div.node()).on("keypress.selectParam"+this.global_identifier, function(e){
+            if(e.which == 13) {
+                temp_this.select();
+            }
         });
-        // $(this.parent_div.node()).on("click.deselectParam"+temp_this.global_identifier, function(e){ console.log("click on cell"); e.stopPropagation(); });
-        $(this.content.node()).on("click.deselectParam"+temp_this.global_identifier, function(e){ console.log("click on popover"); e.stopPropagation(); });
-        $(document).on("click.deselectParam"+temp_this.global_identifier, function(e){
+    }
+    turnOffSelectListeners() {
+        $(this.parent_div.node()).off("click.selectParam"+this.global_identifier);
+        $(this.parent_div.node()).off("keypress.selectParam"+this.global_identifier);
+    }
+    turnOnDeselectListeners() {
+        var temp_this = this;
+        $(this.content.node()).on("click.deselectParam"+this.global_identifier, function(e){ console.log("click on popover"); e.stopPropagation(); });
+        $(document).on("click.deselectParam"+this.global_identifier, function(e){
             console.log("first click on document");
             $(document).off("click.deselectParam"+temp_this.global_identifier); // ignore the first one;
             $(document).on("click.deselectParam"+temp_this.global_identifier, function(e){
@@ -428,6 +426,12 @@ class StringParam extends Param {
                 temp_this.deselect();
             });
         });
+    }
+    turnOffDeselectListeners() {
+        // $(this.content.node()).off("focusin.deselectParam"+this.global_identifier);
+        $(this.content.node()).off("click.deselectParam"+this.global_identifier);
+        // $(document).off("focusin.deselectParam"+this.global_identifier);
+        $(document).off("click.deselectParam"+this.global_identifier);
     }
     setPopoverContent() {
         var temp_this = this;
@@ -446,15 +450,23 @@ class StringParam extends Param {
                     event.preventDefault();
                     // Trigger the button element with a click
                     temp_this.deselect();
+                    $(temp_this.parent_div.node()).focus();
                 // Number 9 is the "Tab" key on the keyboard
                 } else if (event.keyCode === 9) {
                     // Cancel the default action, if needed
                     event.preventDefault();
                     // Trigger the button element with a click
                     temp_this.deselect();
+                    $(temp_this.parent_div.node()).focus();
                 }
             });
         });
+    }
+    // directions: 0 - right, 1 - down, 2 - left, 3 - up
+    // TODO: implement this
+    getNextParam(direction=0) {
+        if (direction == 0) {
+        }
     }
     savePopoverInfo() {
         var value = this.content.select("input").node().value.trim();
@@ -493,8 +505,9 @@ class NumberParam extends StringParam {
         var temp_this = this;
         var type = this.content.select("select").node().value;
         if (this.object.getName() != type) {
+            this.object.savePopoverInfo();
             this.object = new this.options[type](this.object.json); // cast to a new object
-            this.object.display(this.parent_div);
+            this.object.display(this.parent_div)
         }
         this.object.populatePopoverInput(this.content.select("div"), this);
         if (popover_initialized) {
@@ -582,12 +595,14 @@ class NumberObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 // Number 9 is the "Tab" key on the keyboard
                 } else if (event.keyCode === 9) {
                     // Cancel the default action, if needed
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
         });
@@ -597,7 +612,7 @@ class NumberObject extends AbstractNumberObject {
         this.cell_div.html(this.json["number"]);
     }
     savePopoverInfo() {
-        this.json["number"] = this.input_div.select("input").node().value;
+        this.json["number"] = Number(this.input_div.select("input").node().value.trim());
     }
 }
 
@@ -649,6 +664,7 @@ class RangeObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
             temp_this.input2.node().addEventListener("keydown", function(event) {
@@ -658,6 +674,7 @@ class RangeObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
             temp_this.input3.node().addEventListener("keydown", function(event) {
@@ -667,12 +684,14 @@ class RangeObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 // Number 9 is the "Tab" key on the keyboard
                 } else if (event.keyCode === 9) {
                     // Cancel the default action, if needed
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
         });
@@ -682,9 +701,10 @@ class RangeObject extends AbstractNumberObject {
         this.cell_div.html("Range: "+this.json["extras"]["lower"]+" to "+this.json["extras"]["upper"]+" by "+this.json["extras"]["by"]);
     }
     savePopoverInfo() {
-        this.json["extras"]["lower"] = this.input1.node().value;
-        this.json["extras"]["upper"] = this.input2.node().value;
-        this.json["extras"]["by"] = this.input3.node().value;
+        this.json["extras"]["lower"] = Number(this.input1.node().value.trim());
+        this.json["extras"]["upper"] = Number(this.input2.node().value.trim());
+        this.json["extras"]["by"] = Number(this.input3.node().value.trim());
+        this.json["number"] = this.json["extras"]["lower"];
     }
 }
 class NormalDistObject extends AbstractNumberObject {
@@ -728,6 +748,7 @@ class NormalDistObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
             temp_this.input2.node().addEventListener("keydown", function(event) {
@@ -737,12 +758,14 @@ class NormalDistObject extends AbstractNumberObject {
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 // Number 9 is the "Tab" key on the keyboard
                 } else if (event.keyCode === 9) {
                     // Cancel the default action, if needed
                     event.preventDefault();
                     // Trigger the button element with a click
                     param.deselect();
+                    $(temp_this.cell_div.node()).focus();
                 }
             });
         });
@@ -752,8 +775,9 @@ class NormalDistObject extends AbstractNumberObject {
         this.cell_div.html("NormalDist("+this.json["extras"]["mean"]+", "+this.json["extras"]["variance"]+")");
     }
     savePopoverInfo() {
-        this.json["extras"]["mean"] = this.input1.node().value;
-        this.json["extras"]["variance"] = this.input2.node().value;
+        this.json["extras"]["mean"] = Number(this.input1.node().value.trim());
+        this.json["extras"]["variance"] = Number(this.input2.node().value.trim());
+        this.json["number"] = this.json["extras"]["mean"];
     }
 }
 
