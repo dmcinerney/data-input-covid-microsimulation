@@ -364,6 +364,7 @@ class Param extends JSONViewer {
 class StringParam extends Param {
     constructor(json, parent=null, name="top") {
         super(json, parent, name);
+        this.json["type"] = "string";
         this.global_identifier = global_state.getFreshId();
         this.content = null;
     }
@@ -445,7 +446,7 @@ class StringParam extends Param {
                     event.preventDefault();
                     // Trigger the button element with a click
                     temp_this.deselect();
-                // Number 13 is the "Tab" key on the keyboard
+                // Number 9 is the "Tab" key on the keyboard
                 } else if (event.keyCode === 9) {
                     // Cancel the default action, if needed
                     event.preventDefault();
@@ -465,37 +466,44 @@ class StringParam extends Param {
 }
 
 class NumberParam extends StringParam {
+    constructor(json, parent=null, name="top") {
+        super(json, parent, name);
+        this.json["type"] = "number";
+        this.json["param"] = {"number": this.json["param"]};
+        this.object = new NumberObject(this.json["param"]);
+        this.options = {"number":NumberObject, "range":RangeObject, "normal dist": NormalDistObject};
+    }
+    display(parent_div) {
+        super.display(parent_div);
+        this.object.display(parent_div);
+    }
     setPopoverContent() {
         var temp_this = this;
         this.content = d3.select(d3.select("#cell-popover-template-wrapper").select("div").node().cloneNode(true));
         var select = this.content.append("select")
-        var options = ["Number", "Range", "Normal Dist"];
-        select.selectAll("option").data(options).enter().append("option")
+        select.selectAll("option").data(Object.keys(this.options)).enter().append("option")
             .attr("value", function(d){ return d; })
             .html(function(d){ return d; });
-        var input = this.content.append("input")
-          .attr("class", "form-control")
-          .attr("value", this.json["param"]);
-        $(this.parent_div.node()).on("shown.bs.popover", function(){
-            input.node().select();
-            //taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
-            // Execute a function when the user releases a key on the keyboard
-            input.node().addEventListener("keydown", function(event) {
-                // Number 13 is the "Enter" key on the keyboard
-                if (event.keyCode === 13) {
-                    // Cancel the default action, if needed
-                    event.preventDefault();
-                    // Trigger the button element with a click
-                    temp_this.deselect();
-                // Number 13 is the "Tab" key on the keyboard
-                } else if (event.keyCode === 9) {
-                    // Cancel the default action, if needed
-                    event.preventDefault();
-                    // Trigger the button element with a click
-                    temp_this.deselect();
-                }
-            });
-        });
+        select.node().value = this.object.getName();
+        this.content.append("div");
+        this.populatePopoverInput();
+        select.on("change", function(){ temp_this.populatePopoverInput(true); });
+    }
+    populatePopoverInput(popover_initialized=false) {
+        var temp_this = this;
+        var type = this.content.select("select").node().value;
+        if (this.object.getName() != type) {
+            this.object = new this.options[type](this.object.json); // cast to a new object
+            this.object.display(this.parent_div);
+        }
+        this.object.populatePopoverInput(this.content.select("div"), this);
+        if (popover_initialized) {
+            $(this.parent_div.node()).popover('show');
+        }
+    }
+    savePopoverInfo() {
+        this.object.savePopoverInfo();
+        this.object.display(this.parent_div);
     }
 }
 
@@ -529,6 +537,223 @@ class BooleanParam extends Param {
         //   .attr("type", "button")
         //   .attr("class", "btn btn-light")
         //   .html("...");
+    }
+}
+
+
+class AbstractParamObject {
+    constructor(json) {
+        this.json = json;
+        this.json["extras"] = {};
+        this.cell_div = null;
+        this.input_div = null;
+    }
+    populatePopoverInput(input_div, param) {
+        this.input_div = input_div.html("");
+    }
+    display(cell_div) {
+        this.cell_div = cell_div.html("");
+    }
+}
+
+class AbstractNumberObject extends AbstractParamObject {
+}
+
+
+class NumberObject extends AbstractNumberObject {
+    getName() {
+        return "number";
+    }
+    populatePopoverInput(input_div, param) {
+        super.populatePopoverInput(input_div);
+        var temp_this = this;
+        var input = this.input_div
+          .append("input")
+          .attr("class", "form-control")
+          .attr("value", this.json["number"]);
+        $(this.cell_div.node()).on("shown.bs.popover", function(){
+            input.node().select();
+            //taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
+            // Execute a function when the user releases a key on the keyboard
+            input.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                // Number 9 is the "Tab" key on the keyboard
+                } else if (event.keyCode === 9) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+        });
+    }
+    display(cell_div) {
+        super.display(cell_div);
+        this.cell_div.html(this.json["number"]);
+    }
+    savePopoverInfo() {
+        this.json["number"] = this.input_div.select("input").node().value;
+    }
+}
+
+class RangeObject extends AbstractNumberObject {
+    constructor(json) {
+        super(json);
+        this.json["extras"]["lower"] = json["number"];
+        this.json["extras"]["upper"] = json["number"]+1;
+        this.json["extras"]["by"] = 1;
+        this.input1 = null;
+        this.input2 = null;
+        this.input3 = null;
+    }
+    getName() {
+        return "range";
+    }
+    populatePopoverInput(input_div, param) {
+        var temp_this = this;
+        super.populatePopoverInput(input_div);
+        this.input1 = this.input_div
+          .append("input")
+          .attr("class", "form-control inline")
+          .attr("value", this.json["extras"]["lower"]);
+        this.input_div
+          .append("text")
+          .attr("class", "inline")
+          .html("to");
+        this.input2 = this.input_div
+          .append("input")
+          .attr("class", "form-control inline")
+          .attr("value", this.json["extras"]["upper"]);
+        this.input_div
+          .append("text")
+          .attr("class", "inline")
+          .html("by");
+        this.input3 = this.input_div
+          .append("input")
+          .attr("class", "form-control inline")
+          .attr("value", this.json["extras"]["by"]);
+
+        $(this.cell_div.node()).on("shown.bs.popover", function(){
+            temp_this.input1.node().select();
+            //taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
+            // Execute a function when the user releases a key on the keyboard
+            temp_this.input1.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+            temp_this.input2.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+            temp_this.input3.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                // Number 9 is the "Tab" key on the keyboard
+                } else if (event.keyCode === 9) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+        });
+    }
+    display(cell_div) {
+        super.display(cell_div);
+        this.cell_div.html("Range: "+this.json["extras"]["lower"]+" to "+this.json["extras"]["upper"]+" by "+this.json["extras"]["by"]);
+    }
+    savePopoverInfo() {
+        this.json["extras"]["lower"] = this.input1.node().value;
+        this.json["extras"]["upper"] = this.input2.node().value;
+        this.json["extras"]["by"] = this.input3.node().value;
+    }
+}
+class NormalDistObject extends AbstractNumberObject {
+    constructor(json) {
+        super(json);
+        this.json["extras"]["mean"] = json["number"];
+        this.json["extras"]["variance"] = 0;
+        this.input1 = null;
+        this.input2 = null;
+    }
+    getName() {
+        return "normal dist";
+    }
+    populatePopoverInput(input_div, param) {
+        var temp_this = this;
+        super.populatePopoverInput(input_div);
+        this.input_div
+          .append("text")
+          .attr("class", "inline")
+          .html("Mean:");
+        this.input1 = this.input_div
+          .append("input")
+          .attr("class", "form-control inline")
+          .attr("value", this.json["extras"]["mean"]);
+        this.input_div
+          .append("text")
+          .attr("class", "inline")
+          .html("Variance:");
+        this.input2 = this.input_div
+          .append("input")
+          .attr("class", "form-control inline")
+          .attr("value", this.json["extras"]["variance"]);
+        $(this.cell_div.node()).on("shown.bs.popover", function(){
+            temp_this.input1.node().select();
+            // taken from https://www.w3schools.com/howto/howto_js_trigger_button_enter.asp
+            // Execute a function when the user releases a key on the keyboard
+            temp_this.input1.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+            temp_this.input2.node().addEventListener("keydown", function(event) {
+                // Number 13 is the "Enter" key on the keyboard
+                if (event.keyCode === 13) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                // Number 9 is the "Tab" key on the keyboard
+                } else if (event.keyCode === 9) {
+                    // Cancel the default action, if needed
+                    event.preventDefault();
+                    // Trigger the button element with a click
+                    param.deselect();
+                }
+            });
+        });
+    }
+    display(cell_div) {
+        super.display(cell_div);
+        this.cell_div.html("NormalDist("+this.json["extras"]["mean"]+", "+this.json["extras"]["variance"]+")");
+    }
+    savePopoverInfo() {
+        this.json["extras"]["mean"] = this.input1.node().value;
+        this.json["extras"]["variance"] = this.input2.node().value;
     }
 }
 

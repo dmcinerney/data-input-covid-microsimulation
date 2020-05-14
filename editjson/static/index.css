@@ -15,3 +15,8 @@
 /*.cell:focus {
 	outline: none;
 }*/
+
+.inline { 
+    display: inline-block;
+    margin: 3px;
+}
